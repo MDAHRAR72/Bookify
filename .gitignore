@@ -42,3 +42,6 @@ next-env.d.ts
 
 # JetBrains / IntelliJ / WebStorm (since you have .idea folders)
 .idea/
+
+#Clerk
+./clerk

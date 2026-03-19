@@ -5,11 +5,11 @@ import { RadioGroup as RadioGroupPrimitive } from "@base-ui/react/radio-group"
 
 import { cn } from "@/lib/utils"
 
-interface RadioGroupProps extends RadioGroupPrimitive.Props {
-  onValueChange?: (value: string) => void
-}
-
-function RadioGroup({ className, onValueChange, ...props }: RadioGroupProps) {
+function RadioGroup({
+  className,
+  onValueChange,
+  ...props
+}: RadioGroupPrimitive.Props) {
   return (
     <RadioGroupPrimitive
       data-slot="radio-group"

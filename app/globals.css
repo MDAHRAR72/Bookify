@@ -380,7 +380,7 @@
     @apply mb-5 md:mb-9 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4;
   }
   .auth-footer {
-    @apply mt-10 text-center text-sm text-(--text-secondary) max-w-md;
+    @apply mt-10 text-center text-sm text-[var(--text-secondary)] max-w-md;
   }
 
   /* ===========================================
@@ -936,7 +936,7 @@ button[data-variant="unstyled"] *,
 /* Add accent border to active plan card
    Note: This uses :first-child which assumes active plan is always first.
    If Clerk changes the order, this may highlight the wrong card. */
-.cl-pricingTableCard:first-child {
+.cl-pricingTableCard:has(.cl-badge__activePlan) {
   border: 2px solid #663820 !important;
 }
 

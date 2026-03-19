@@ -76,12 +76,25 @@ const UploadForm = () => {
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (_values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
-    console.log(values);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    setIsSubmitting(false);
+    try {
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      // Reset form and state
+      form.reset();
+      setPdfName(null);
+      setCoverName(null);
+
+      // Success feedback (using alert as no toast library is present)
+      alert("Book synthesis started successfully!");
+    } catch (error) {
+      console.error("Submission error:", error);
+      alert("An error occurred while starting the synthesis. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handlePdfChange = (
@@ -116,7 +129,7 @@ const UploadForm = () => {
             <FormField
               control={form.control}
               name="pdfFile"
-              render={({ field: { onChange, value, ...rest } }) => (
+              render={({ field: { onChange, ...rest } }) => (
                 <FormItem>
                   <FormLabel className="form-label">Book PDF File</FormLabel>
                   <FormControl>
@@ -174,7 +187,7 @@ const UploadForm = () => {
             <FormField
               control={form.control}
               name="coverImage"
-              render={({ field: { onChange, value, ...rest } }) => (
+              render={({ field: { onChange, ...rest } }) => (
                 <FormItem>
                   <FormLabel className="form-label">
                     Cover Image (Optional)
