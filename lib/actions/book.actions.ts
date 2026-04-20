@@ -7,6 +7,7 @@ import { CreateBook, TextSegment } from "@/types";
 import { escapeRegex, generateSlug, serializeData } from "../utils";
 import Book from "@/database/models/book.model";
 import BookSegment from "@/database/models/book-segment.model";
+import { revalidatePath } from "next/cache";
 
 export const getAllBooks = async (search?: string) => {
   try {
@@ -94,6 +95,8 @@ export const createBook = async (data: Omit<CreateBook, "clerkId">) => {
       clerkId,
       totalSegments: 0,
     });
+
+    revalidatePath("/");
 
     return {
       success: true,
