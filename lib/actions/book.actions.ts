@@ -112,7 +112,9 @@ export const getBookBySlug = async (slug: string) => {
   try {
     await connectToDatabase();
 
-    const book = await Book.findOne({ slug }).lean();
+    const { userId: clerkId } = await auth();
+    if (!clerkId) return { success: false, error: "Unauthorized" };
+    const book = await Book.findOne({ slug, clerkId }).lean();
 
     if (!book) {
       return { success: false, error: "Book not found" };
@@ -201,6 +203,9 @@ export const searchBookSegments = async (
     // Fallback: regex search matching ANY keyword
     if (segments.length === 0) {
       const keywords = query.split(/\s+/).filter((k) => k.length > 2);
+      if (keywords.length === 0) {
+        return { success: true, data: [] };
+      }
       const pattern = keywords.map(escapeRegex).join("|");
 
       segments = await BookSegment.find({
