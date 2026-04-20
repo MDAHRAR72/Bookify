@@ -15,10 +15,10 @@ export interface IBook extends Document {
   title: string;
   slug: string;
   author: string;
-  persona?: string;
+  voice?: string;
   fileURL: string;
   fileBlobKey: string;
-  coverURL: string;
+  coverURL?: string;
   coverBlobKey?: string;
   fileSize: number;
   totalSegments: number;
@@ -59,7 +59,7 @@ export interface CreateBook {
   clerkId: string;
   title: string;
   author: string;
-  persona?: string;
+  voice?: string;
   fileURL: string;
   fileBlobKey: string;
   coverURL?: string;

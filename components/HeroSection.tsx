@@ -22,7 +22,7 @@ const steps = [
 
 const HeroSection = () => {
   return (
-    <section className="wrapper pt-28 mt-10 md:mb-16">
+    <section className="wrapper mt-10 md:mb-16">
       <div className="library-hero-card">
         <div className="library-hero-content">
           {/* Left Section */}
