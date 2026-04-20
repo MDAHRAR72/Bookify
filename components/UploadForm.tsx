@@ -15,8 +15,17 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { cn } from "@/lib/utils";
+import { cn, parsePDFFile } from "@/lib/utils";
 import LoadingOverlay from "./LoadingOverlay";
+import { useAuth } from "@clerk/nextjs";
+import { toast } from "sonner";
+import {
+  checkBookExists,
+  createBook,
+  saveBookSegments,
+} from "@/lib/actions/book.actions";
+import { useRouter } from "next/navigation";
+import { upload } from "@vercel/blob/client";
 
 const formSchema = z.object({
   pdfFile: z
@@ -66,32 +75,112 @@ const UploadForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pdfName, setPdfName] = useState<string | null>(null);
   const [coverName, setCoverName] = useState<string | null>(null);
+  const { userId } = useAuth();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
       author: "",
-      voice: "rachel",
+      voice: "dave",
+      pdfFile: undefined,
+      coverImage: undefined,
     },
   });
 
-  const onSubmit = async (_values: z.infer<typeof formSchema>) => {
+  const onSubmit = async (data: z.infer<typeof formSchema>) => {
+    if (!userId) {
+      return toast.error("You must be logged in to upload a book.");
+    }
     setIsSubmitting(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const existsCheck = await checkBookExists(data.title);
 
-      // Reset form and state
+      if (existsCheck.exists && existsCheck.book) {
+        toast.info("A book with this title already exists.");
+        form.reset();
+        router.push(`/books/${existsCheck.book.slug}`);
+        return;
+      }
+
+      const fileTitle = data.title.replace(/\s+/g, "_").toLowerCase();
+      const pdfFile = data.pdfFile;
+      const parsedPDF = await parsePDFFile(pdfFile);
+
+      if (parsedPDF.content.length === 0) {
+        toast.error(
+          "Failed to parse PDF file. Please ensure it's a valid PDF.",
+        );
+        return;
+      }
+
+      const uploadedPdfBlob = await upload(fileTitle, pdfFile, {
+        access: "public",
+        handleUploadUrl: "/api/upload",
+        contentType: "application/pdf",
+      });
+      let coverURL: string;
+
+      if (data.coverImage && data.coverImage.length > 0) {
+        const coverFile = data.coverImage[0];
+        const uploadedCoverBlob = await upload(
+          `${fileTitle}_cover`,
+          coverFile,
+          {
+            access: "public",
+            handleUploadUrl: "/api/upload",
+            contentType: coverFile.type,
+          },
+        );
+        coverURL = uploadedCoverBlob.url;
+      } else {
+        const response = await fetch(parsedPDF.cover);
+        const blob = await response.blob();
+        const uploadedCoverBlob = await upload(`${fileTitle}_cover`, blob, {
+          access: "public",
+          handleUploadUrl: "/api/upload",
+          contentType: "image/png",
+        });
+        coverURL = uploadedCoverBlob.url;
+      }
+      const book = await createBook({
+        clerkId: userId,
+        title: data.title,
+        author: data.author,
+        voice: data.voice,
+        fileURL: uploadedPdfBlob.url,
+        fileBlobKey: uploadedPdfBlob.pathname,
+        coverURL,
+        fileSize: pdfFile.size,
+      });
+
+      if (!book.success) {
+        toast.error((book.error as string) || "Failed to create book.");
+        return;
+      }
+      if (book.alreadyExists) {
+        toast.info("A book with this title already exists.");
+        form.reset();
+        router.push(`/books/${book.data.slug}`);
+        return;
+      }
+
+      const segments = await saveBookSegments(
+        book.data._id,
+        userId,
+        parsedPDF.content,
+      );
+
+      if (!segments.success) {
+        toast.error("Failed to save book segments. Please try again.");
+        throw new Error("Failed to save book segments");
+      }
       form.reset();
-      setPdfName(null);
-      setCoverName(null);
-
-      // Success feedback (using alert as no toast library is present)
-      alert("Book synthesis started successfully!");
+      router.push("/");
     } catch (error) {
-      console.error("Submission error:", error);
-      alert("An error occurred while starting the synthesis. Please try again.");
+      console.error(error);
+      toast.error("Failed to upload book. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -297,7 +386,7 @@ const UploadForm = () => {
                     >
                       {voices.map((group) => (
                         <div key={group.group} className="space-y-3">
-                          <h4 className="text-sm font-medium text-[var(--text-secondary)]">
+                          <h4 className="text-sm font-medium text-(--text-secondary)">
                             {group.group}
                           </h4>
                           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -323,14 +412,14 @@ const UploadForm = () => {
                                     {/* Custom Radio Circle */}
                                     <div
                                       className={cn(
-                                        "mt-1 w-[20px] h-[20px] shrink-0 rounded-full border flex items-center justify-center cursor-pointer",
+                                        "mt-1 w-5 h-5 shrink-0 rounded-full border flex items-center justify-center cursor-pointer",
                                         field.value === option.id
                                           ? "border-[#212a3b] bg-[#212a3b]"
                                           : "border-gray-300",
                                       )}
                                     >
                                       {field.value === option.id && (
-                                        <div className="w-[10px] h-[10px] rounded-full bg-white" />
+                                        <div className="w-2.5 h-2.5] rounded-full bg-white" />
                                       )}
                                     </div>
                                     {/* Text Content */}
@@ -338,7 +427,7 @@ const UploadForm = () => {
                                       <p className="font-bold text-[#212a3b] leading-tight">
                                         {option.name}
                                       </p>
-                                      <p className="text-xs text-[var(--text-secondary)] mt-1 leading-snug">
+                                      <p className="text-xs text-(--text-secondary) mt-1 leading-snug">
                                         {option.description}
                                       </p>
                                     </div>

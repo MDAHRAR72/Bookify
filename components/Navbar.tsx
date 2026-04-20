@@ -18,7 +18,13 @@ const Navbar = () => {
     <header className="w-full fixed top-0 left-0 z-50 bg-(--bg-primary)">
       <div className="wrapper navbar-height py-4 flex justify-between items-center">
         <Link href="/" className="flex gap-0.5 items-center">
-          <Image src="/assets/logo.png" alt="Bookify" width={42} height={26} />
+          <Image
+            src="/assets/logo.png"
+            alt="Bookify"
+            width={42}
+            height={26}
+            style={{ height: "auto" }}
+          />
           <span className="logo-text">Bookify</span>
         </Link>
         <nav className="w-fit flex gap-7.5 items-center">
