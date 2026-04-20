@@ -17,14 +17,16 @@ const LoadingOverlay = () => {
           />
           <div className="text-center space-y-2">
             <h2 className="loading-title">Synthesizing Your Book</h2>
-            <p className="text-[var(--text-secondary)]">
+            <p className="text-(--text-secondary)">
               This will take a few moments. Please don&apos;t close this page.
             </p>
           </div>
           <div className="loading-progress">
             <div className="loading-progress-item">
               <div className="loading-progress-status" />
-              <span className="text-[var(--text-secondary)]">Analyzing PDF content...</span>
+              <span className="text-(--text-secondary)">
+                Analyzing PDF content...
+              </span>
             </div>
           </div>
         </div>

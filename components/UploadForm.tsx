@@ -19,7 +19,11 @@ import { cn, parsePDFFile } from "@/lib/utils";
 import LoadingOverlay from "./LoadingOverlay";
 import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
-import { checkBookExists, createBook } from "@/lib/actions/book.actions";
+import {
+  checkBookExists,
+  createBook,
+  saveBookSegments,
+} from "@/lib/actions/book.actions";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
 import { del } from "@vercel/blob";
@@ -80,7 +84,7 @@ const UploadForm = () => {
     defaultValues: {
       title: "",
       author: "",
-      voice: "dave",
+      voice: "",
       pdfFile: undefined,
       coverImage: undefined,
     },
@@ -191,24 +195,17 @@ const UploadForm = () => {
         return;
       }
 
-      const segmentsResponse = await fetch("/api/save-book-segments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          bookId: book.data._id,
-          segments: parsedPDF.content,
-        }),
-      });
+      const segments = await saveBookSegments(
+        book.data._id,
+        userId,
+        parsedPDF.content,
+      );
 
-      const segments = await segmentsResponse.json();
-
-      if (!segmentsResponse.ok || !segments.success) {
-        await cleanupBlobs();
-        toast.error("Failed to save book segments. Please try again.");
+      if (!segments.success) {
+        toast.error("Failed to save book segments");
         throw new Error("Failed to save book segments");
       }
+
       form.reset();
       router.push("/");
     } catch (error) {
