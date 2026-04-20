@@ -7,7 +7,7 @@ const VoiceSessionSchema = new Schema<IVoiceSession>(
     bookId: { type: Schema.Types.ObjectId, ref: "Book", required: true },
     startedAt: { type: Date, required: true, default: Date.now },
     endedAt: { type: Date },
-    durationSeconds: { type: Number, default: 0, required: true },
+    durationSeconds: { type: Number, default: 0, required: true, min: 0 },
     billingPeriodStart: { type: Date, required: true, index: true },
   },
   { timestamps: true },

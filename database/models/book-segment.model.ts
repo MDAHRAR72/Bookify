@@ -18,9 +18,9 @@ const BookSegmentSchema = new Schema<IBookSegment>(
   { timestamps: true },
 );
 
-BookSegmentSchema.index({ bookId: 1, segmentIndex: 1 }, { unique: true });
-BookSegmentSchema.index({ bookId: 1, pageNumber: 1 });
-BookSegmentSchema.index({ bookId: 1, content: "text" });
+// BookSegmentSchema.index({ bookId: 1, segmentIndex: 1 }, { unique: true });
+// BookSegmentSchema.index({ bookId: 1, pageNumber: 1 });
+// BookSegmentSchema.index({ bookId: 1, content: "text" });
 
 const BookSegment =
   models.BookSegment || model<IBookSegment>("BookSegment", BookSegmentSchema);

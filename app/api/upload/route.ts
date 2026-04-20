@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { handleUpload, HandleUploadBody } from "@vercel/blob/client";
 import { auth } from "@clerk/nextjs/server";
-import { MAX_FILE_SIZE } from "@/lib/constants";
+import { MAX_FILE_SIZE, MAX_IMAGE_SIZE } from "@/lib/constants";
 
 export async function POST(request: Request): Promise<NextResponse> {
   try {
@@ -11,23 +11,26 @@ export async function POST(request: Request): Promise<NextResponse> {
       token: process.env.BLOB_READ_WRITE_TOKEN,
       body,
       request,
-      onBeforeGenerateToken: async () => {
+      onBeforeGenerateToken: async (_pathname, clientPayload) => {
         const { userId } = await auth();
 
         if (!userId) {
           throw new Error("Unauthorized: User not authenticated");
         }
 
+        const uploadType = clientPayload === "cover" ? "cover" : "pdf";
+        const isCoverUpload = uploadType === "cover";
+
         return {
-          allowedContentTypes: [
-            "application/pdf",
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-          ],
+          allowedContentTypes: isCoverUpload
+            ? ["image/jpeg", "image/png", "image/webp"]
+            : ["application/pdf"],
           addRandomSuffix: true,
-          maximumSizeInBytes: MAX_FILE_SIZE,
-          tokenPayload: JSON.stringify({ userId }),
+          maximumSizeInBytes: isCoverUpload ? MAX_IMAGE_SIZE : MAX_FILE_SIZE,
+          tokenPayload: JSON.stringify({
+            userId,
+            uploadType,
+          }),
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {

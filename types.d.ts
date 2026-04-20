@@ -18,7 +18,7 @@ export interface IBook extends Document {
   voice?: string;
   fileURL: string;
   fileBlobKey: string;
-  coverURL: string;
+  coverURL?: string;
   coverBlobKey?: string;
   fileSize: number;
   totalSegments: number;

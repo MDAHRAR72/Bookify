@@ -23,7 +23,7 @@ const Navbar = () => {
             alt="Bookify"
             width={42}
             height={26}
-            style={{ height: "auto" }}
+            style={{ width: "100%", height: "auto" }}
           />
           <span className="logo-text">Bookify</span>
         </Link>

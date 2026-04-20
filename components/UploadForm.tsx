@@ -19,13 +19,10 @@ import { cn, parsePDFFile } from "@/lib/utils";
 import LoadingOverlay from "./LoadingOverlay";
 import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
-import {
-  checkBookExists,
-  createBook,
-  saveBookSegments,
-} from "@/lib/actions/book.actions";
+import { checkBookExists, createBook } from "@/lib/actions/book.actions";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
+import { del } from "@vercel/blob";
 
 const formSchema = z.object({
   pdfFile: z
@@ -118,34 +115,60 @@ const UploadForm = () => {
       const uploadedPdfBlob = await upload(fileTitle, pdfFile, {
         access: "public",
         handleUploadUrl: "/api/upload",
+        clientPayload: "pdf",
         contentType: "application/pdf",
       });
       let coverURL: string;
+      let coverBlobPath: string | undefined;
 
-      if (data.coverImage && data.coverImage.length > 0) {
-        const coverFile = data.coverImage[0];
+      if (data.coverImage instanceof File) {
+        const coverFile = data.coverImage;
         const uploadedCoverBlob = await upload(
           `${fileTitle}_cover`,
           coverFile,
           {
             access: "public",
             handleUploadUrl: "/api/upload",
+            clientPayload: "cover",
             contentType: coverFile.type,
           },
         );
         coverURL = uploadedCoverBlob.url;
+        coverBlobPath = uploadedCoverBlob.pathname;
       } else {
         const response = await fetch(parsedPDF.cover);
         const blob = await response.blob();
         const uploadedCoverBlob = await upload(`${fileTitle}_cover`, blob, {
           access: "public",
           handleUploadUrl: "/api/upload",
+          clientPayload: "cover",
           contentType: "image/png",
         });
         coverURL = uploadedCoverBlob.url;
+        coverBlobPath = uploadedCoverBlob.pathname;
       }
+
+      const cleanupBlobs = async () => {
+        const paths = [uploadedPdfBlob.pathname, coverBlobPath].filter(
+          Boolean,
+        ) as string[];
+
+        await Promise.all(
+          paths.map(async (pathname) => {
+            try {
+              await del(pathname);
+            } catch (cleanupError) {
+              console.error(
+                "Failed to delete orphaned blob:",
+                pathname,
+                cleanupError,
+              );
+            }
+          }),
+        );
+      };
+
       const book = await createBook({
-        clerkId: userId,
         title: data.title,
         author: data.author,
         voice: data.voice,
@@ -156,23 +179,33 @@ const UploadForm = () => {
       });
 
       if (!book.success) {
+        await cleanupBlobs();
         toast.error((book.error as string) || "Failed to create book.");
         return;
       }
       if (book.alreadyExists) {
+        await cleanupBlobs();
         toast.info("A book with this title already exists.");
         form.reset();
         router.push(`/books/${book.data.slug}`);
         return;
       }
 
-      const segments = await saveBookSegments(
-        book.data._id,
-        userId,
-        parsedPDF.content,
-      );
+      const segmentsResponse = await fetch("/api/save-book-segments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          bookId: book.data._id,
+          segments: parsedPDF.content,
+        }),
+      });
 
-      if (!segments.success) {
+      const segments = await segmentsResponse.json();
+
+      if (!segmentsResponse.ok || !segments.success) {
+        await cleanupBlobs();
         toast.error("Failed to save book segments. Please try again.");
         throw new Error("Failed to save book segments");
       }
@@ -419,7 +452,7 @@ const UploadForm = () => {
                                       )}
                                     >
                                       {field.value === option.id && (
-                                        <div className="w-2.5 h-2.5] rounded-full bg-white" />
+                                        <div className="w-2.5 h-2.5 rounded-full bg-white" />
                                       )}
                                     </div>
                                     {/* Text Content */}

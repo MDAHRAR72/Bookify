@@ -1,6 +1,7 @@
 "use server";
 
 import { connectToDatabase } from "@/database/mongoose";
+import { auth } from "@clerk/nextjs/server";
 import { CreateBook, TextSegment } from "@/types";
 import { generateSlug, serializeData } from "../utils";
 import Book from "@/database/models/book.model";
@@ -25,10 +26,18 @@ export const getAllBooks = async () => {
 export const checkBookExists = async (title: string) => {
   try {
     await connectToDatabase();
+    const { userId: clerkId } = await auth();
+
+    if (!clerkId) {
+      return {
+        exists: false,
+        error: "Unauthorized",
+      };
+    }
 
     const slug = generateSlug(title);
 
-    const existingBook = await Book.findOne({ slug }).lean();
+    const existingBook = await Book.findOne({ slug, clerkId }).lean();
 
     if (existingBook) {
       return {
@@ -49,13 +58,22 @@ export const checkBookExists = async (title: string) => {
   }
 };
 
-export const createBook = async (data: CreateBook) => {
+export const createBook = async (data: Omit<CreateBook, "clerkId">) => {
   try {
+    const { userId: clerkId } = await auth();
+
+    if (!clerkId) {
+      return {
+        success: false,
+        error: "Unauthorized: User not authenticated",
+      };
+    }
+
     await connectToDatabase();
 
     const slug = generateSlug(data.title);
 
-    const existingBook = await Book.findOne({ slug }).lean();
+    const existingBook = await Book.findOne({ slug, clerkId }).lean();
 
     if (existingBook) {
       return {
@@ -65,7 +83,12 @@ export const createBook = async (data: CreateBook) => {
       };
     }
 
-    const book = await Book.create({ ...data, slug, totalSegments: 0 });
+    const book = await Book.create({
+      ...data,
+      slug,
+      clerkId,
+      totalSegments: 0,
+    });
 
     return {
       success: true,
@@ -82,10 +105,18 @@ export const createBook = async (data: CreateBook) => {
 
 export const saveBookSegments = async (
   bookId: string,
-  clerkId: string,
   segments: TextSegment[],
 ) => {
   try {
+    const { userId: clerkId } = await auth();
+
+    if (!clerkId) {
+      return {
+        success: false,
+        error: "Unauthorized: User not authenticated",
+      };
+    }
+
     await connectToDatabase();
 
     console.log(`Saving book segments...`);
@@ -103,7 +134,10 @@ export const saveBookSegments = async (
 
     await BookSegment.insertMany(segmentsToInsert);
 
-    await Book.findByIdAndUpdate(bookId, { totalSegments: segments.length });
+    await Book.findOneAndUpdate(
+      { _id: bookId, clerkId },
+      { totalSegments: segments.length },
+    );
 
     console.log(`Successfully saved book segments`);
 
@@ -114,8 +148,11 @@ export const saveBookSegments = async (
   } catch (e) {
     console.error("Error saving book segments:", e);
 
-    await BookSegment.deleteMany({ bookId });
-    await Book.findByIdAndDelete(bookId);
+    await BookSegment.deleteMany({ bookId, clerkId: (await auth()).userId });
+    await Book.findOneAndDelete({
+      _id: bookId,
+      clerkId: (await auth()).userId,
+    });
     console.log(`Deleted book segments and book due to error saving segments`);
 
     return {
