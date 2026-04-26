@@ -24,18 +24,7 @@ const VAPI_API_KEY = process.env.NEXT_PUBLIC_VAPI_API_KEY;
 const TIMER_INTERVAL_MS = 1000;
 const SECONDS_PER_MINUTE = 60;
 
-let vapi: InstanceType<typeof Vapi>;
-function getVapi() {
-  if (!vapi) {
-    if (!VAPI_API_KEY) {
-      throw new Error(
-        "NEXT_PUBLIC_VAPI_API_KEY environment variable is not set",
-      );
-    }
-    vapi = new Vapi(VAPI_API_KEY);
-  }
-  return vapi;
-}
+// No more module-level singleton — each hook creates its own instance via ref
 
 export type CallStatus =
   | "idle"
@@ -53,14 +42,33 @@ export function useVapi(book: IBook) {
   const [currentMessage, setCurrentMessage] = useState("");
   const [currentUserMessage, setCurrentUserMessage] = useState("");
   const [duration, setDuration] = useState(0);
-  const [limitError, setLimitError] = useState<string | null>(null);
+  const [limitError, setLimitError] = useState<string | null>(() =>
+    !VAPI_API_KEY
+      ? "Voice service is not configured. Please contact support."
+      : null,
+  );
   const [isBillingError, setIsBillingError] = useState(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const isStoppingRef = useRef(false);
-  const initErrorRef = useRef<string | null>(null);
+  const limitReachedRef = useRef(false); // fix: prevent repeated timer firings after cap
+
+  // Fix: per-hook Vapi instance instead of module-level singleton
+  const vapiRef = useRef<InstanceType<typeof Vapi> | null>(null);
+
+  function getVapiInstance(): InstanceType<typeof Vapi> {
+    if (!vapiRef.current) {
+      if (!VAPI_API_KEY) {
+        throw new Error(
+          "NEXT_PUBLIC_VAPI_API_KEY environment variable is not set",
+        );
+      }
+      vapiRef.current = new Vapi(VAPI_API_KEY);
+    }
+    return vapiRef.current;
+  }
 
   const maxDurationSeconds = limits?.maxDurationPerSession
     ? limits.maxDurationPerSession * 60
@@ -69,18 +77,22 @@ export function useVapi(book: IBook) {
   const durationRef = useLatestRef(duration);
   const voice = book.voice || DEFAULT_VOICE;
 
-  // Flush any init error from the Vapi setup effect into state
   useEffect(() => {
-    if (initErrorRef.current) {
-      setLimitError(initErrorRef.current);
-      initErrorRef.current = null;
-    }
-  }, []);
+    // Fix: initialize instance eagerly so we can surface a config error
+    // directly into state — no ref-flush race condition
+    if (!VAPI_API_KEY) return;
 
-  useEffect(() => {
+    let vapiInstance: InstanceType<typeof Vapi>;
+    try {
+      vapiInstance = getVapiInstance();
+    } catch {
+      return;
+    }
+
     const handlers = {
       "call-start": () => {
         isStoppingRef.current = false;
+        limitReachedRef.current = false; // reset cap flag for new call
         setStatus("starting");
         setCurrentMessage("");
         setCurrentUserMessage("");
@@ -95,12 +107,21 @@ export function useVapi(book: IBook) {
             );
             setDuration(newDuration);
 
-            // Check duration limit
-            if (newDuration >= maxDurationRef.current) {
+            // Fix: clear the timer immediately when cap is hit so this
+            // block only fires once, not every second until call-end lands
+            if (
+              newDuration >= maxDurationRef.current &&
+              !limitReachedRef.current
+            ) {
+              limitReachedRef.current = true;
+              if (timerRef.current) {
+                clearInterval(timerRef.current);
+                timerRef.current = null;
+              }
               try {
-                getVapi().stop();
+                vapiInstance.stop();
               } catch {
-                // Instance wasn't created — nothing to stop
+                // nothing to stop
               }
               setLimitError(
                 `Session time limit (${Math.floor(
@@ -113,18 +134,15 @@ export function useVapi(book: IBook) {
       },
 
       "call-end": () => {
-        // Don't reset isStoppingRef here - delayed events may still fire
         setStatus("idle");
         setCurrentMessage("");
         setCurrentUserMessage("");
 
-        // Stop timer
         if (timerRef.current) {
           clearInterval(timerRef.current);
           timerRef.current = null;
         }
 
-        // End session tracking
         if (sessionIdRef.current) {
           endVoiceSession(sessionIdRef.current, durationRef.current).catch(
             (err) => console.error("Failed to end voice session:", err),
@@ -142,7 +160,6 @@ export function useVapi(book: IBook) {
       },
       "speech-end": () => {
         if (!isStoppingRef.current) {
-          // After AI finishes speaking, user can talk
           setStatus("listening");
         }
       },
@@ -155,7 +172,6 @@ export function useVapi(book: IBook) {
       }) => {
         if (message.type !== "transcript") return;
 
-        // User finished speaking → AI is thinking
         if (message.role === "user" && message.transcriptType === "final") {
           if (!isStoppingRef.current) {
             setStatus("thinking");
@@ -163,13 +179,11 @@ export function useVapi(book: IBook) {
           setCurrentUserMessage("");
         }
 
-        // Partial user transcript → show real-time typing
         if (message.role === "user" && message.transcriptType === "partial") {
           setCurrentUserMessage(message.transcript);
           return;
         }
 
-        // Partial AI transcript → show word-by-word
         if (
           message.role === "assistant" &&
           message.transcriptType === "partial"
@@ -178,7 +192,6 @@ export function useVapi(book: IBook) {
           return;
         }
 
-        // Final transcript → add to messages
         if (message.transcriptType === "final") {
           if (message.role === "assistant") setCurrentMessage("");
           if (message.role === "user") setCurrentUserMessage("");
@@ -197,18 +210,15 @@ export function useVapi(book: IBook) {
 
       error: (error: Error) => {
         console.error("Vapi error:", error);
-        // Don't reset isStoppingRef here - delayed events may still fire
         setStatus("idle");
         setCurrentMessage("");
         setCurrentUserMessage("");
 
-        // Stop timer on error
         if (timerRef.current) {
           clearInterval(timerRef.current);
           timerRef.current = null;
         }
 
-        // End session tracking on error
         if (sessionIdRef.current) {
           endVoiceSession(sessionIdRef.current, durationRef.current).catch(
             (err) =>
@@ -217,7 +227,6 @@ export function useVapi(book: IBook) {
           sessionIdRef.current = null;
         }
 
-        // Show user-friendly error message
         const errorMessage = error.message?.toLowerCase() || "";
         if (
           errorMessage.includes("timeout") ||
@@ -243,22 +252,12 @@ export function useVapi(book: IBook) {
       },
     };
 
-    let vapiInstance: InstanceType<typeof Vapi>;
-    try {
-      vapiInstance = getVapi();
-    } catch (err) {
-      initErrorRef.current =
-        "Voice service is not configured. Please contact support.";
-      return;
-    }
-
     // Register all handlers
     Object.entries(handlers).forEach(([event, handler]) => {
       vapiInstance.on(event as keyof typeof handlers, handler as () => void);
     });
 
     return () => {
-      // End active session on unmount
       if (sessionIdRef.current) {
         vapiInstance.stop();
         endVoiceSession(sessionIdRef.current, durationRef.current).catch(
@@ -267,13 +266,12 @@ export function useVapi(book: IBook) {
         );
         sessionIdRef.current = null;
       }
-      // Cleanup handlers
       Object.entries(handlers).forEach(([event, handler]) => {
         vapiInstance.off(event as keyof typeof handlers, handler as () => void);
       });
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, []);
+  }, [durationRef, maxDurationRef]);
 
   const start = useCallback(async () => {
     if (!userId) {
@@ -304,7 +302,7 @@ export function useVapi(book: IBook) {
 
       const firstMessage = `Hello there, good to meet you! I am your reading assistant. I will read the book out loud for you. You can ask me questions about the book or request me to explain certain parts as we go along. Just click the mic button whenever you want to talk to me!`;
 
-      await getVapi().start(ASSISTANT_ID, {
+      await getVapiInstance().start(ASSISTANT_ID, {
         firstMessage,
         variableValues: {
           title: book.title,
@@ -331,7 +329,7 @@ export function useVapi(book: IBook) {
   const stop = useCallback(() => {
     isStoppingRef.current = true;
     try {
-      getVapi().stop();
+      getVapiInstance().stop();
     } catch {
       // Instance wasn't created — nothing to stop
     }

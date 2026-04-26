@@ -10,7 +10,6 @@ export const startVoiceSession = async (
   bookId: string,
 ): Promise<StartSessionResult> => {
   try {
-    // Validate bookId is a valid ObjectId
     const { userId: clerkId } = await auth();
     if (!clerkId) {
       return { success: false, error: "Unauthorized" };
@@ -23,8 +22,14 @@ export const startVoiceSession = async (
     const plan = await getUserPlan();
     const limits = PLAN_LIMITS[plan];
 
+    const now = new Date();
+    const billingPeriodStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+
     const sessionCount = await VoiceSession.countDocuments({
       clerkId,
+      startedAt: { $gte: billingPeriodStart },
     });
 
     if (sessionCount >= limits.maxSessionsPerMonth) {
@@ -48,7 +53,8 @@ export const startVoiceSession = async (
     const session = await VoiceSession.create({
       clerkId,
       bookId,
-      startedAt: new Date(),
+      startedAt: now,
+      billingPeriodStart,
       durationSeconds: 0,
     });
     return {
