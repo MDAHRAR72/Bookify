@@ -6,8 +6,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-mona-sans);
-  --font-serif: var(--font-ibm-plex-serif);
+  --font-sans: var(--font-dm-sans);
+  --font-serif: var(--font-urbanist);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -213,7 +213,7 @@
   }
   .form-btn {
     @apply !w-full h-14 rounded-[10px] bg-[#2563ff] cursor-pointer hover:bg-[#1d4ed8] text-xl text-white font-bold transition-colors;
-    font-family: "IBM Plex Serif", serif;
+    font-family: "Urbanist", sans-serif;
     box-shadow: var(--shadow-soft-sm);
     &:hover {
       box-shadow: var(--shadow-soft);
@@ -279,7 +279,7 @@
   /* Button utilities */
   .btn-primary {
     @apply inline-flex items-center justify-center px-6 py-3 bg-[var(--color-brand)] hover:bg-[var(--color-brand-hover)] text-white font-bold rounded-[10px] transition-colors;
-    font-family: "IBM Plex Serif", serif;
+    font-family: "Urbanist", sans-serif;
   }
   .btn-secondary {
     @apply inline-flex items-center justify-center px-6 py-3 bg-white hover:bg-gray-50 text-[var(--text-secondary)] font-medium rounded-[10px] transition-colors;
@@ -440,7 +440,7 @@
   }
   .vapi-badge-ai-text {
     @apply text-sm font-medium text-[#111111];
-    font-family: "IBM Plex Serif", serif;
+    font-family: "Urbanist", sans-serif;
   }
   .vapi-status-indicator {
     @apply flex items-center gap-2 bg-white px-3 py-2 rounded-[4px];
@@ -468,7 +468,7 @@
   }
   .vapi-status-text {
     @apply text-sm font-medium text-[#111111];
-    font-family: "IBM Plex Serif", serif;
+    font-family: "Urbanist", sans-serif;
   }
   .vapi-stat-box {
     @apply bg-white rounded-[10px] px-2.5 py-5 min-w-[225px] text-center;
@@ -478,11 +478,11 @@
   }
   .vapi-stat-label {
     @apply text-lg font-medium text-[#111111] mb-3;
-    font-family: "IBM Plex Serif", serif;
+    font-family: "Urbanist", sans-serif;
   }
   .vapi-stat-value-lg {
     @apply text-[30px] font-semibold text-black leading-9;
-    font-family: "IBM Plex Serif", serif;
+    font-family: "Urbanist", sans-serif;
   }
   .vapi-stat-value-sm {
     @apply text-sm font-semibold text-[var(--text-primary)] text-center truncate;
@@ -514,7 +514,7 @@
   }
   .library-cta-primary {
     @apply inline-flex items-center justify-center gap-2 bg-white text-[var(--text-primary)] px-5 py-3 rounded-[10px] font-bold text-base md:text-xl transition-all w-full lg:w-fit;
-    font-family: "IBM Plex Serif", serif;
+    font-family: "Urbanist", sans-serif;
 
     &:hover {
       @apply bg-gray-50;
@@ -523,7 +523,7 @@
   }
   .library-cta-secondary {
     @apply inline-flex items-center gap-2 bg-white text-[var(--text-primary)] px-5 py-3 rounded-[10px] font-bold text-xl transition-all;
-    font-family: "IBM Plex Serif", serif;
+    font-family: "Urbanist", sans-serif;
 
     &:hover {
       @apply bg-gray-50;
@@ -678,7 +678,7 @@
   }
   .book-card-title {
     @apply font-bold text-[#111111] line-clamp-1 text-base md:text-xl leading-[22px] md:leading-[30px];
-    font-family: "IBM Plex Serif", serif;
+    font-family: "Urbanist", sans-serif;
   }
   .book-card-author {
     @apply text-sm md:text-base font-medium text-[#3d3d3d] line-clamp-1;
@@ -985,11 +985,11 @@ button[data-variant="unstyled"] *,
 
 /*!* Match the app's existing design system *!*/
 /* .clerk-pricing-container :deep(.cl-pricing-table) {
-  font-family: var(--font-mona-sans), sans-serif;
+  font-family: var(--font-dm-sans), sans-serif;
 }
 
 clerk-pricing-container :deep(.cl-pricing-table-header) {
-  font-family: var(--font-ibm-plex-serif), serif;
+  font-family: var(--font-urbanist), serif;
 }
 
 .clerk-pricing-container :deep(.cl-pricing-plan-card) {
