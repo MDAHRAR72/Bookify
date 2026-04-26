@@ -1,9 +1,16 @@
 {
-	"servers": {
-		"mcp-clerk": {
-			"url": "https://mcp.clerk.dev/mcp",
-			"type": "http"
-		}
-	},
-	"inputs": []
+  "servers": {
+    "mcp-clerk": {
+      "url": "https://mcp.clerk.dev/mcp",
+      "type": "http"
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": [
+        "shadcn@latest",
+        "mcp"
+      ]
+    }
+  },
+  "inputs": []
 }

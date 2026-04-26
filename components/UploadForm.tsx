@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Upload, Image as ImageIcon, X } from "lucide-react";
+import { Upload, Image as ImageIcon } from "lucide-react";
 import {
   Form,
   FormControl,
@@ -14,7 +14,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { cn, parsePDFFile } from "@/lib/utils";
 import LoadingOverlay from "./LoadingOverlay";
 import { useAuth } from "@clerk/nextjs";

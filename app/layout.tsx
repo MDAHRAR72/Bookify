@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Serif, Mona_Sans } from "next/font/google";
+import { DM_Sans, Urbanist } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ui } from "@clerk/ui";
 
@@ -7,15 +7,15 @@ import Navbar from "@/components/Navbar";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
-const ibmPlexSerif = IBM_Plex_Serif({
-  variable: "--font-ibm-plex-serif",
+const urbanist = Urbanist({
+  variable: "--font-urbanist",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
   display: "swap",
 });
 
-const monaSans = Mona_Sans({
-  variable: "--font-mona-sans",
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
   subsets: ["latin"],
   display: "swap",
 });
@@ -35,7 +35,7 @@ export default function RootLayout({
     <ClerkProvider ui={ui}>
       <html lang="en">
         <body
-          className={`${ibmPlexSerif.variable} ${monaSans.variable} relative font-sans antialiased`}
+          className={`${urbanist.variable} ${dmSans.variable} relative font-sans antialiased`}
         >
           <Navbar />
           {children}
