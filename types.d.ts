@@ -117,6 +117,17 @@ export interface FileUploadFieldProps<T extends FieldValues> {
   hint: string;
 }
 
+import { PlanType } from "@/lib/subscription-constants";
+
+export interface SessionCheckResult {
+  allowed: boolean;
+  currentCount: number;
+  limit: number;
+  plan: PlanType;
+  maxDurationMinutes: number;
+  error?: string;
+}
+
 export interface StartSessionResult {
   success: boolean;
   sessionId?: string;
