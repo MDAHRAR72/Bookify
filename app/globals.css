@@ -705,7 +705,7 @@
     }
   }
   .upload-dropzone-icon {
-    @apply w-[48px] h-[48px] mb-2 text-[#8B7355];
+    @apply w-[48px] h-[48px] mb-2 text-[#2563ff];
   }
   .upload-dropzone-text {
     @apply text-[#777] text-lg font-medium text-center;
