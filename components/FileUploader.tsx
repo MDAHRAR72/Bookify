@@ -53,13 +53,14 @@ const FileUploader = <T extends FieldValues>({
   return (
     <div className="w-full space-y-2">
       <label className="form-label">{label}</label>
-      <div
+      <label
         className={cn(
-          "upload-dropzone border-2 border-dashed border-[#8B7355]/20",
+          "upload-dropzone border-2 border-dashed border-[`#8B7355`]/20",
           isUploaded && "upload-dropzone-uploaded",
           error && "dropzone-error",
+          disabled && "cursor-not-allowed opacity-50",
         )}
-        onClick={() => !disabled && inputRef.current?.click()}
+        aria-disabled={disabled}
       >
         <input
           type="file"
@@ -69,7 +70,6 @@ const FileUploader = <T extends FieldValues>({
           onChange={handleFileChange}
           disabled={disabled}
         />
-
         {isUploaded ? (
           <div className="flex flex-col items-center relative w-full px-4">
             <p className="upload-dropzone-text line-clamp-1">
@@ -90,7 +90,7 @@ const FileUploader = <T extends FieldValues>({
             <p className="upload-dropzone-hint">{hint}</p>
           </>
         )}
-      </div>
+      </label>
       {error && (
         <p className="text-sm font-medium text-destructive">
           {error.message as string}

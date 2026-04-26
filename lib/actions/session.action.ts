@@ -2,30 +2,29 @@
 
 import { connectToDatabase } from "@/database/mongoose";
 import { EndSessionResult, StartSessionResult } from "@/types";
-import { getCurrentBillingPeriodStart } from "../subscription-constants";
 import { auth } from "@clerk/nextjs/server";
 import { Types } from "mongoose";
 import VoiceSession from "@/database/models/voice-session.model";
 
 export const startVoiceSession = async (
-  clerkId: string,
   bookId: string,
 ): Promise<StartSessionResult> => {
   try {
     // Validate bookId is a valid ObjectId
+    const { userId: clerkId } = await auth();
+    if (!clerkId) {
+      return { success: false, error: "Unauthorized" };
+    }
     await connectToDatabase();
 
     const { getUserPlan } = await import("@/lib/subscription.server");
-    const { PLAN_LIMITS, getCurrentBillingPeriodStart } =
-      await import("@/lib/subscription-constants");
+    const { PLAN_LIMITS } = await import("@/lib/subscription-constants");
 
     const plan = await getUserPlan();
     const limits = PLAN_LIMITS[plan];
-    const billingPeriodStart = getCurrentBillingPeriodStart();
 
     const sessionCount = await VoiceSession.countDocuments({
       clerkId,
-      billingPeriodStart,
     });
 
     if (sessionCount >= limits.maxSessionsPerMonth) {
@@ -50,7 +49,6 @@ export const startVoiceSession = async (
       clerkId,
       bookId,
       startedAt: new Date(),
-      billingPeriodStart: getCurrentBillingPeriodStart(),
       durationSeconds: 0,
     });
     return {
@@ -99,10 +97,10 @@ export const endVoiceSession = async (
     await connectToDatabase();
 
     // Ownership-aware query: only allow user to end their own session
-    const result = await VoiceSession.findByIdAndUpdate(sessionId, {
-      endedAt: new Date(),
-      durationSeconds: sanitizedDuration,
-    });
+    const result = await VoiceSession.findOneAndUpdate(
+      { _id: sessionId, clerkId },
+      { endedAt: new Date(), durationSeconds: sanitizedDuration },
+    );
 
     if (!result) return { success: false, error: "Voice session not found." };
     return { success: true };

@@ -157,7 +157,7 @@ export const getBookBySlug = async (slug: string) => {
 export const saveBookSegments = async (
   bookId: string,
   clerkId: string,
-  segments: TextSegment[],
+  segments: TextSegment[]
 ) => {
   try {
     await connectToDatabase();
@@ -172,7 +172,7 @@ export const saveBookSegments = async (
         segmentIndex,
         pageNumber,
         wordCount,
-      }),
+      })
     );
 
     await BookSegment.insertMany(segmentsToInsert);
@@ -196,7 +196,7 @@ export const saveBookSegments = async (
 export const searchBookSegments = async (
   bookId: string,
   query: string,
-  limit: number = 5,
+  limit: number = 5
 ) => {
   try {
     await connectToDatabase();
@@ -251,34 +251,6 @@ export const searchBookSegments = async (
       success: false,
       error: (error as Error).message,
       data: [],
-    };
-  }
-};
-
-export const cleanupBlobs = async (blobPaths: string[]) => {
-  try {
-    const { del } = await import("@vercel/blob");
-
-    await Promise.all(
-      blobPaths.map(async (pathname) => {
-        try {
-          await del(pathname);
-        } catch (cleanupError) {
-          console.error(
-            "Failed to delete orphaned blob:",
-            pathname,
-            cleanupError,
-          );
-        }
-      }),
-    );
-
-    return { success: true };
-  } catch (e) {
-    console.error("Error cleaning up blobs:", e);
-    return {
-      success: false,
-      error: "Failed to cleanup blobs",
     };
   }
 };

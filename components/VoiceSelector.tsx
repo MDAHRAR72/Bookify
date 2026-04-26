@@ -40,12 +40,13 @@ const VoiceSelector = ({
                     <RadioGroupItem
                       value={voiceId}
                       id={voiceId}
-                      className="hidden"
+                      className="sr-only peer"
                     />
                     <label
                       htmlFor={voiceId}
                       className={cn(
                         "voice-selector-option block cursor-pointer h-full",
+                        "peer-focus-visible:ring-2 peer-focus-visible:ring-(--accent-warm)",
                         isSelected
                           ? "voice-selector-option-selected"
                           : "voice-selector-option-default",
