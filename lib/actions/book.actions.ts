@@ -8,6 +8,7 @@ import { escapeRegex, generateSlug, serializeData } from "../utils";
 import Book from "@/database/models/book.model";
 import BookSegment from "@/database/models/book-segment.model";
 import { revalidatePath } from "next/cache";
+import { getUserPlan } from "@/lib/subscription.server";
 
 export const getAllBooks = async (search?: string) => {
   try {
@@ -64,22 +65,13 @@ export const checkBookExists = async (title: string) => {
   }
 };
 
-export const createBook = async (data: Omit<CreateBook, "clerkId">) => {
+export const createBook = async (data: CreateBook) => {
   try {
-    const { userId: clerkId } = await auth();
-
-    if (!clerkId) {
-      return {
-        success: false,
-        error: "Unauthorized: User not authenticated",
-      };
-    }
-
     await connectToDatabase();
 
     const slug = generateSlug(data.title);
 
-    const existingBook = await Book.findOne({ slug, clerkId }).lean();
+    const existingBook = await Book.findOne({ slug }).lean();
 
     if (existingBook) {
       return {
@@ -89,10 +81,36 @@ export const createBook = async (data: Omit<CreateBook, "clerkId">) => {
       };
     }
 
+    const { getUserPlan } = await import("@/lib/subscription.server");
+    const { PLAN_LIMITS } = await import("@/lib/subscription-constants");
+
+    const { auth } = await import("@clerk/nextjs/server");
+    const { userId } = await auth();
+
+    if (!userId || userId !== data.clerkId) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const plan = await getUserPlan();
+    const limits = PLAN_LIMITS[plan];
+
+    const bookCount = await Book.countDocuments({ clerkId: userId });
+
+    if (bookCount >= limits.maxBooks) {
+      const { revalidatePath } = await import("next/cache");
+      revalidatePath("/");
+
+      return {
+        success: false,
+        error: `You have reached the maximum number of books allowed for your ${plan} plan (${limits.maxBooks}). Please upgrade to add more books.`,
+        isBillingError: true,
+      };
+    }
+
     const book = await Book.create({
       ...data,
       slug,
-      clerkId,
+      clerkId: userId,
       totalSegments: 0,
     });
 
@@ -233,6 +251,34 @@ export const searchBookSegments = async (
       success: false,
       error: (error as Error).message,
       data: [],
+    };
+  }
+};
+
+export const cleanupBlobs = async (blobPaths: string[]) => {
+  try {
+    const { del } = await import("@vercel/blob");
+
+    await Promise.all(
+      blobPaths.map(async (pathname) => {
+        try {
+          await del(pathname);
+        } catch (cleanupError) {
+          console.error(
+            "Failed to delete orphaned blob:",
+            pathname,
+            cleanupError,
+          );
+        }
+      }),
+    );
+
+    return { success: true };
+  } catch (e) {
+    console.error("Error cleaning up blobs:", e);
+    return {
+      success: false,
+      error: "Failed to cleanup blobs",
     };
   }
 };

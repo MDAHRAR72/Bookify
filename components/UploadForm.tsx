@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -26,7 +26,9 @@ import {
 } from "@/lib/actions/book.actions";
 import { useRouter } from "next/navigation";
 import { upload } from "@vercel/blob/client";
-import { del } from "@vercel/blob";
+import VoiceSelector from "./VoiceSelector";
+import FileUploader from "./FileUploader";
+import { ACCEPTED_IMAGE_TYPES, ACCEPTED_PDF_TYPES } from "@/lib/constants";
 
 const formSchema = z.object({
   pdfFile: z
@@ -38,46 +40,15 @@ const formSchema = z.object({
   voice: z.string().min(1, "Please choose a voice"),
 });
 
-const voices = [
-  {
-    group: "Male Voices",
-    options: [
-      {
-        id: "dave",
-        name: "Dave",
-        description: "Young male, British-Essex, casual & conversational",
-      },
-      {
-        id: "daniel",
-        name: "Daniel",
-        description: "Middle-aged male, British, authoritative but warm",
-      },
-      { id: "chris", name: "Chris", description: "Male, casual & easy-going" },
-    ],
-  },
-  {
-    group: "Female Voices",
-    options: [
-      {
-        id: "rachel",
-        name: "Rachel",
-        description: "Young female, American, calm & clear",
-      },
-      {
-        id: "sarah",
-        name: "Sarah",
-        description: "Young female, American, soft & approachable",
-      },
-    ],
-  },
-];
-
 const UploadForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pdfName, setPdfName] = useState<string | null>(null);
-  const [coverName, setCoverName] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
   const { userId } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -119,21 +90,20 @@ const UploadForm = () => {
       const uploadedPdfBlob = await upload(fileTitle, pdfFile, {
         access: "public",
         handleUploadUrl: "/api/upload",
-        clientPayload: "pdf",
         contentType: "application/pdf",
       });
+
       let coverURL: string;
       let coverBlobPath: string | undefined;
 
-      if (data.coverImage instanceof File) {
+      if (data.coverImage) {
         const coverFile = data.coverImage;
         const uploadedCoverBlob = await upload(
-          `${fileTitle}_cover`,
+          `${fileTitle}_cover.png`,
           coverFile,
           {
             access: "public",
             handleUploadUrl: "/api/upload",
-            clientPayload: "cover",
             contentType: coverFile.type,
           },
         );
@@ -142,10 +112,9 @@ const UploadForm = () => {
       } else {
         const response = await fetch(parsedPDF.cover);
         const blob = await response.blob();
-        const uploadedCoverBlob = await upload(`${fileTitle}_cover`, blob, {
+        const uploadedCoverBlob = await upload(`${fileTitle}_cover.png`, blob, {
           access: "public",
           handleUploadUrl: "/api/upload",
-          clientPayload: "cover",
           contentType: "image/png",
         });
         coverURL = uploadedCoverBlob.url;
@@ -157,22 +126,19 @@ const UploadForm = () => {
           Boolean,
         ) as string[];
 
-        await Promise.all(
-          paths.map(async (pathname) => {
-            try {
-              await del(pathname);
-            } catch (cleanupError) {
-              console.error(
-                "Failed to delete orphaned blob:",
-                pathname,
-                cleanupError,
-              );
-            }
-          }),
-        );
+        try {
+          await fetch("/api/delete-blob", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pathnames: paths }),
+          });
+        } catch (cleanupError) {
+          console.error("Failed to delete orphaned blobs:", cleanupError);
+        }
       };
 
       const book = await createBook({
+        clerkId: userId,
         title: data.title,
         author: data.author,
         voice: data.voice,
@@ -185,8 +151,12 @@ const UploadForm = () => {
       if (!book.success) {
         await cleanupBlobs();
         toast.error((book.error as string) || "Failed to create book.");
+        if (book.isBillingError) {
+          router.push("/subscriptions");
+        }
         return;
       }
+
       if (book.alreadyExists) {
         await cleanupBlobs();
         toast.info("A book with this title already exists.");
@@ -216,27 +186,7 @@ const UploadForm = () => {
     }
   };
 
-  const handlePdfChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    onChange: (file: File | null) => void,
-  ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPdfName(file.name);
-      onChange(file);
-    }
-  };
-
-  const handleCoverChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    onChange: (file: File | null) => void,
-  ) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setCoverName(file.name);
-      onChange(file);
-    }
-  };
+  if (!isMounted) return null;
 
   return (
     <>
@@ -245,117 +195,30 @@ const UploadForm = () => {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             {/* PDF File Upload */}
-            <FormField
+            <FileUploader
               control={form.control}
               name="pdfFile"
-              render={({ field: { onChange, ...rest } }) => (
-                <FormItem>
-                  <FormLabel className="form-label">Book PDF File</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      {pdfName ? (
-                        <div className="upload-dropzone upload-dropzone-uploaded">
-                          <div className="flex items-center justify-between w-full px-4">
-                            <span className="truncate font-medium">
-                              {pdfName}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPdfName(null);
-                                onChange(null);
-                              }}
-                              className="upload-dropzone-remove"
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <label
-                          className={cn(
-                            "upload-dropzone cursor-pointer transition-all",
-                            // APPLY ERROR CLASS HERE
-                            form.formState.errors.pdfFile && "dropzone-error",
-                          )}
-                        >
-                          <input
-                            type="file"
-                            accept=".pdf"
-                            className="hidden"
-                            onChange={(e) => handlePdfChange(e, onChange)}
-                            {...rest}
-                          />
-                          <Upload className="upload-dropzone-icon" />
-                          <span className="upload-dropzone-text">
-                            Click to upload PDF
-                          </span>
-                          <span className="upload-dropzone-hint">
-                            PDF file (max 50MB)
-                          </span>
-                        </label>
-                      )}
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              label="Book PDF File"
+              acceptTypes={ACCEPTED_PDF_TYPES}
+              icon={Upload}
+              placeholder="Click to upload PDF"
+              hint="PDF file (max 50MB)"
+              disabled={isSubmitting}
             />
 
             {/* Cover Image Upload */}
-            <FormField
+            <FileUploader
               control={form.control}
               name="coverImage"
-              render={({ field: { onChange, ...rest } }) => (
-                <FormItem>
-                  <FormLabel className="form-label">
-                    Cover Image (Optional)
-                  </FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      {coverName ? (
-                        <div className="upload-dropzone upload-dropzone-uploaded">
-                          <div className="flex items-center justify-between w-full px-4">
-                            <span className="truncate font-medium">
-                              {coverName}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setCoverName(null);
-                                onChange(null);
-                              }}
-                              className="upload-dropzone-remove"
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <label className="upload-dropzone cursor-pointer">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleCoverChange(e, onChange)}
-                            {...rest}
-                          />
-                          <ImageIcon className="upload-dropzone-icon" />
-                          <span className="upload-dropzone-text">
-                            Click to upload cover image
-                          </span>
-                          <span className="upload-dropzone-hint">
-                            Leave empty to auto-generate from PDF
-                          </span>
-                        </label>
-                      )}
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              label="Cover Image (Optional)"
+              acceptTypes={ACCEPTED_IMAGE_TYPES}
+              icon={ImageIcon}
+              placeholder="Click to upload cover image"
+              hint="Leave empty to auto-generate from PDF"
+              disabled={isSubmitting}
             />
 
+            {/* Title Input */}
             <FormField
               control={form.control}
               name="title"
@@ -404,71 +267,16 @@ const UploadForm = () => {
               control={form.control}
               name="voice"
               render={({ field }) => (
-                <FormItem className="space-y-4">
+                <FormItem>
                   <FormLabel className="form-label">
                     Choose Assistant Voice
                   </FormLabel>
                   <FormControl>
-                    <RadioGroup
-                      onValueChange={field.onChange}
+                    <VoiceSelector
                       value={field.value}
-                      className="space-y-6"
-                    >
-                      {voices.map((group) => (
-                        <div key={group.group} className="space-y-3">
-                          <h4 className="text-sm font-medium text-(--text-secondary)">
-                            {group.group}
-                          </h4>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                            {group.options.map((option) => (
-                              <FormItem key={option.id} className="space-y-0">
-                                <FormControl>
-                                  <RadioGroupItem
-                                    value={option.id}
-                                    className="hidden"
-                                    id={option.id}
-                                  />
-                                </FormControl>
-                                <label
-                                  htmlFor={option.id}
-                                  className={cn(
-                                    "voice-selector-option block cursor-pointer h-full",
-                                    field.value === option.id
-                                      ? "voice-selector-option-selected"
-                                      : "voice-selector-option-default",
-                                  )}
-                                >
-                                  <div className="flex items-start gap-3">
-                                    {/* Custom Radio Circle */}
-                                    <div
-                                      className={cn(
-                                        "mt-1 w-5 h-5 shrink-0 rounded-full border flex items-center justify-center cursor-pointer",
-                                        field.value === option.id
-                                          ? "border-[#212a3b] bg-[#212a3b]"
-                                          : "border-gray-300",
-                                      )}
-                                    >
-                                      {field.value === option.id && (
-                                        <div className="w-2.5 h-2.5 rounded-full bg-white" />
-                                      )}
-                                    </div>
-                                    {/* Text Content */}
-                                    <div className="flex flex-col text-left">
-                                      <p className="font-bold text-[#212a3b] leading-tight">
-                                        {option.name}
-                                      </p>
-                                      <p className="text-xs text-(--text-secondary) mt-1 leading-snug">
-                                        {option.description}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </label>
-                              </FormItem>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </RadioGroup>
+                      onChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

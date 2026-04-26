@@ -1,26 +1,44 @@
 "use server";
 
-import VoiceSession from "@/database/models/voice-session.model";
 import { connectToDatabase } from "@/database/mongoose";
 import { EndSessionResult, StartSessionResult } from "@/types";
 import { getCurrentBillingPeriodStart } from "../subscription-constants";
 import { auth } from "@clerk/nextjs/server";
 import { Types } from "mongoose";
+import VoiceSession from "@/database/models/voice-session.model";
 
 export const startVoiceSession = async (
+  clerkId: string,
   bookId: string,
 ): Promise<StartSessionResult> => {
   try {
-    const { userId: clerkId } = await auth();
+    // Validate bookId is a valid ObjectId
+    await connectToDatabase();
 
-    if (!clerkId) {
+    const { getUserPlan } = await import("@/lib/subscription.server");
+    const { PLAN_LIMITS, getCurrentBillingPeriodStart } =
+      await import("@/lib/subscription-constants");
+
+    const plan = await getUserPlan();
+    const limits = PLAN_LIMITS[plan];
+    const billingPeriodStart = getCurrentBillingPeriodStart();
+
+    const sessionCount = await VoiceSession.countDocuments({
+      clerkId,
+      billingPeriodStart,
+    });
+
+    if (sessionCount >= limits.maxSessionsPerMonth) {
+      const { revalidatePath } = await import("next/cache");
+      revalidatePath("/");
+
       return {
         success: false,
-        error: "Unauthorized: User not authenticated",
+        error: `You have reached the monthly session limit for your ${plan} plan (${limits.maxSessionsPerMonth}). Please upgrade for more sessions.`,
+        isBillingError: true,
       };
     }
 
-    // Validate bookId is a valid ObjectId
     if (!Types.ObjectId.isValid(bookId)) {
       return {
         success: false,
@@ -28,7 +46,6 @@ export const startVoiceSession = async (
       };
     }
 
-    await connectToDatabase();
     const session = await VoiceSession.create({
       clerkId,
       bookId,
@@ -39,6 +56,7 @@ export const startVoiceSession = async (
     return {
       success: true,
       sessionId: session._id.toString(),
+      maxDurationMinutes: limits.maxDurationPerSession,
     };
   } catch (e) {
     console.error("Error starting voice session", e);
@@ -81,13 +99,10 @@ export const endVoiceSession = async (
     await connectToDatabase();
 
     // Ownership-aware query: only allow user to end their own session
-    const result = await VoiceSession.findOneAndUpdate(
-      { _id: sessionId, clerkId },
-      {
-        endedAt: new Date(),
-        durationSeconds: sanitizedDuration,
-      },
-    );
+    const result = await VoiceSession.findByIdAndUpdate(sessionId, {
+      endedAt: new Date(),
+      durationSeconds: sanitizedDuration,
+    });
 
     if (!result) return { success: false, error: "Voice session not found." };
     return { success: true };

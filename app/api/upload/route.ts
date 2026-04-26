@@ -22,15 +22,15 @@ export async function POST(request: Request): Promise<NextResponse> {
         const isCoverUpload = uploadType === "cover";
 
         return {
-          allowedContentTypes: isCoverUpload
-            ? ["image/jpeg", "image/png", "image/webp"]
-            : ["application/pdf"],
+          allowedContentTypes: [
+            "application/pdf",
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+          ],
           addRandomSuffix: true,
           maximumSizeInBytes: isCoverUpload ? MAX_IMAGE_SIZE : MAX_FILE_SIZE,
-          tokenPayload: JSON.stringify({
-            userId,
-            uploadType,
-          }),
+          tokenPayload: JSON.stringify({ userId }),
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {

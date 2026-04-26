@@ -428,7 +428,7 @@
     }
   }
   .vapi-mic-btn-active {
-    @apply bg-white;
+    @apply bg-[#212a3b];
   }
   .vapi-mic-btn-inactive {
     @apply bg-white;
@@ -451,6 +451,9 @@
   }
   .vapi-status-dot-connecting {
     @apply bg-yellow-500 animate-pulse;
+  }
+  .vapi-status-dot-starting {
+    @apply bg-blue-500 animate-pulse;
   }
   .vapi-status-dot-listening {
     @apply bg-green-500 animate-pulse;
@@ -620,15 +623,7 @@
     @apply flex gap-4;
   }
   .voice-selector-option {
-    display: flex;
-    align-items: flex-start;
-    padding: 1rem;
-    border: 1px solid var(--border-subtle);
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    height: 100%;
-    min-height: 80px;
+    @apply flex-1 flex items-center justify-center gap-3 p-4 border border-(--border-subtle) rounded-lg cursor-pointer transition-all;
     box-shadow: var(--shadow-soft-sm);
 
     &:hover {
@@ -936,7 +931,7 @@ button[data-variant="unstyled"] *,
 /* Add accent border to active plan card
    Note: This uses :first-child which assumes active plan is always first.
    If Clerk changes the order, this may highlight the wrong card. */
-.cl-pricingTableCard:has(.cl-badge__activePlan) {
+.cl-pricingTableCard:first-child {
   border: 2px solid #663820 !important;
 }
 
@@ -976,3 +971,33 @@ button[data-variant="unstyled"] *,
 .dropzone-error {
   border: 2px dashed #ef4444 !important;
 }
+
+.clerk-pricing-container {
+  --cl-color-primary: var(--primary);
+  --cl-color-text: var(--foreground);
+  --cl-color-background: var(--background);
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/*!* Match the app's existing design system *!*/
+/* .clerk-pricing-container :deep(.cl-pricing-table) {
+  font-family: var(--font-mona-sans), sans-serif;
+}
+
+clerk-pricing-container :deep(.cl-pricing-table-header) {
+  font-family: var(--font-ibm-plex-serif), serif;
+}
+
+.clerk-pricing-container :deep(.cl-pricing-plan-card) {
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1);
+  transition: transform 0.2s ease;
+}
+
+.clerk-pricing-container :deep(.cl-pricing-plan-card:hover) {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0px 0px rgba(0, 0, 0, 1);
+} */
