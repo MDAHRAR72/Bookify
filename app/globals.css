@@ -97,7 +97,7 @@
   --accent: #dce9ff;
   --accent-foreground: #111111;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: 3px solid #000;
+  --border: rgba(0, 0, 0, 0.18);
   --input: rgba(33, 42, 59, 0.12);
   --ring: #111111;
   --chart-1: oklch(0.646 0.222 41.116);
